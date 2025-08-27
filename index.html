@@ -124,6 +124,15 @@
       border: none !important;
       text-align: center;
     }
+
+    /* Mensagem de status */
+    #status {
+      text-align: center;
+      padding: 10px;
+      background: #ffeb3b;
+      color: #333;
+      font-weight: 500;
+    }
   </style>
 </head>
 <body>
@@ -133,6 +142,9 @@
     <h1>🏠 Imóveis Caixa</h1>
     <p>Filtre, navegue e encontre o imóvel ideal</p>
   </header>
+
+  <!-- Status -->
+  <div id="status">Carregando dados...</div>
 
   <!-- Filtros -->
   <div class="filters">
@@ -196,23 +208,39 @@
 
     let imoveis = [];
     let currentIndex = 0;
+    const statusEl = document.getElementById('status');
 
     // Carregar imóveis do Supabase
     async function carregarImoveis() {
-      const { data, error } = await supabase
-        .from('detalhes_imoveis')
-        .select('*')
-        .not('latitude', 'is', null)
-        .not('longitude', 'is', null);
+      try {
+        const { data, error } = await supabase
+          .from('detalhes_imoveis')
+          .select('*')
+          .not('latitude', 'is', null)
+          .not('longitude', 'is', null);
 
-      if (error) {
-        alert('Erro ao carregar imóveis: ' + error.message);
-        return;
+        if (error) {
+          console.error('Erro Supabase:', error);
+          statusEl.innerHTML = `❌ Erro ao carregar dados: ${error.message}`;
+          return;
+        }
+
+        if (data.length === 0) {
+          statusEl.innerHTML = '⚠️ Nenhum imóvel encontrado com coordenadas.';
+          console.log('Dados retornados:', data);
+          return;
+        }
+
+        imoveis = data;
+        statusEl.innerHTML = `✅ ${data.length} imóveis carregados.`;
+        console.log('Imóveis carregados:', imoveis);
+
+        atualizarFiltros();
+        adicionarMarcadores();
+      } catch (err) {
+        console.error('Erro ao carregar imóveis:', err);
+        statusEl.innerHTML = '❌ Erro de conexão com o banco de dados.';
       }
-
-      imoveis = data;
-      atualizarFiltros();
-      adicionarMarcadores();
     }
 
     // Atualiza filtros com base nos dados
@@ -235,6 +263,12 @@
     function adicionarMarcadores() {
       markers.clearLayers();
       const filtrados = aplicarFiltro();
+
+      if (filtrados.length === 0) {
+        statusEl.innerHTML = '🔍 Nenhum imóvel corresponde aos filtros.';
+      } else {
+        statusEl.innerHTML = `Mostrando ${filtrados.length} imóvel(eis).`;
+      }
 
       filtrados.forEach((imovel, index) => {
         const marker = L.marker([imovel.latitude, imovel.longitude])
